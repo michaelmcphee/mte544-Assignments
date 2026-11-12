@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import scipy.linalg
 import random
 import pandas as pd
+from pathlib import Path
 
 def plot_ellipse(S, b, ax):
     eigvals, eigvecs = np.linalg.eigh(S)
@@ -79,8 +80,7 @@ def ransac_ellipse(data, num_iterations=1000, threshold=0.2):
 
         offsets = data - candidate_b
         quadratic_values = np.einsum("ni,ij,nj->n", offsets, candidate_Q, offsets)
-        if np.any(quadratic_values < 0):
-            continue
+
         # Reject degenerate fits whose center is clearly outside the dataset.
         if np.any(candidate_b < data.min(axis=0)) or np.any(candidate_b > data.max(axis=0)):
             continue
@@ -134,8 +134,11 @@ if __name__ == "__main__":
     
     # Plot the raw measurements and fitted ellipse
     fig, ax1 = plt.subplots(1, 1, figsize=(16, 8))
-    visualize_data(dataset, ax1, inliers, threshold=0.5)
+    visualize_data(dataset, ax1, inliers, threshold=0.2)
     plot_ellipse(Q, b_est, ax1)
     ax1.set_title("RANSAC Ellipse Fitting with Threshold Visualization")
 
+    images_dir = Path(__file__).resolve().parent / "images"
+    images_dir.mkdir(exist_ok=True)
+    fig.savefig(images_dir / "ransac_result.png", dpi=300, bbox_inches="tight")
     plt.show()
