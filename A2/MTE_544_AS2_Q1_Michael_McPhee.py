@@ -12,6 +12,7 @@ def fit_ellipse_subset(points):
 
     x = points[:, 0]
     y = points[:, 1]
+    # The five rows provide the five equations needed for the ellipse coefficients.
     design = np.column_stack((x ** 2, 2 * x * y, y ** 2, -2 * x, -2 * y))
 
     if np.linalg.matrix_rank(design) < 5:
@@ -19,7 +20,9 @@ def fit_ellipse_subset(points):
 
     A, B, C, D, E = np.linalg.solve(design, -np.ones(5))
     quadratic = np.array([[A, B], [B, C]])
+    # The centre satisfies Qb = [D, E], before the quadratic is normalized.
     center = np.linalg.solve(quadratic, np.array([D, E]))
+    # Scale the quadratic so that the ellipse has the form (x-b)^T Q (x-b)=1.
     alpha = 1 / (np.dot(np.array([D, E]), center) - 1)
     Q = alpha * quadratic
     if not np.all(np.linalg.eigvalsh(Q) > 0):

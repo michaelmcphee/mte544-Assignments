@@ -37,6 +37,7 @@ def visualize_data(p, ax, inliers, threshold):
         ax.add_patch(circle)
 
 def is_positive_definite(matrix):
+    # A Cholesky factor exists only for a symmetric positive-definite matrix.
     try:
         np.linalg.cholesky(matrix)
         return True
@@ -49,10 +50,13 @@ def fit_ellipse_subset(points):
 
     x = points[:, 0]
     y = points[:, 1]
+    # Each sampled point contributes one equation to the normalized ellipse.
     design = np.column_stack((x ** 2, 2 * x * y, y ** 2, -2 * x, -2 * y))
 
     A, B, C, D, E = np.linalg.solve(design, -np.ones(5))
     quadratic = np.array([[A, B], [B, C]])
+    # Solve for the centre, then scale the quadratic to obtain
+    # (x - b)^T Q (x - b) = 1.
     b = np.linalg.solve(quadratic, np.array([D, E]))
     alpha = 1 / (np.dot(np.array([D, E]), b) - 1)
     Q = alpha * quadratic
@@ -72,6 +76,7 @@ def ransac_ellipse(data, num_iterations=1000, threshold=0.2):
     best_b = None
 
     for _ in range(num_iterations):
+        # A new five-point sample gives one candidate ellipse per iteration.
         subset = data[np.random.choice(data.shape[0], 5, replace=False)]
         try:
             candidate_Q, candidate_b = fit_ellipse_subset(subset)
@@ -84,9 +89,11 @@ def ransac_ellipse(data, num_iterations=1000, threshold=0.2):
         # Reject degenerate fits whose center is clearly outside the dataset.
         if np.any(candidate_b < data.min(axis=0)) or np.any(candidate_b > data.max(axis=0)):
             continue
+        # Points close to the ellipse have sqrt((p-b)^T Q (p-b)) close to one.
         residuals = np.abs(np.sqrt(quadratic_values) - 1)
         candidate_inliers = data[residuals <= threshold]
 
+        # Keep the model that explains the largest number of measurements.
         if candidate_inliers.shape[0] > best_inliers.shape[0]:
             best_Q = candidate_Q
             best_b = candidate_b
@@ -113,6 +120,7 @@ def run_parameter_experiments(all_data):
     print("\nRANSAC parameter experiments")
     print("Parameter       Dataset  Iterations  Threshold  Inliers")
     for parameter, dataset_size, iterations, threshold in experiments:
+        # Reset the seeds so that rows can be compared across experiments.
         rng = np.random.default_rng(7)
         dataset = all_data[rng.choice(all_data.shape[0], dataset_size, replace=False)]
         np.random.seed(7)
@@ -123,11 +131,10 @@ def run_parameter_experiments(all_data):
         )
 
 if __name__ == "__main__":
-    # Load the data from CSV file and select N random points
+    # Load the measurements and select the requested dataset size.
     N = 500
     all_data = pd.read_csv('data_x_y.csv').to_numpy()
     dataset = all_data[np.random.choice(all_data.shape[0], N, replace=False), :]
-    # dataset is p
     
     Q, b_est, inliers = ransac_ellipse(dataset)
     run_parameter_experiments(all_data)
